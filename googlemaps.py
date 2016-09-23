@@ -5,6 +5,8 @@ import re
 import json
 import time
 import requests
+import urllib3
+urllib3.disable_warnings()
 
 class Direction:
     URL = 'https://www.google.co.il/maps/dir/{source}/{destination}'
