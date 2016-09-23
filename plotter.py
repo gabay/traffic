@@ -30,18 +30,19 @@ def int_to_time(i):
     return ' '.join(result)
 
 def main(*args):
-    filter_src = args[0].lower() if len(args) > 0 else None
-    filter_dst = args[1].lower() if len(args) > 1 else None
-        
-    lines = parse_csv('traffic.csv', filter_src, filter_dst)
-    
+    csv_path = args[0] if len(args) > 0 else 'traffic.csv'
+    filter_src = args[1].lower() if len(args) > 1 else None
+    filter_dst = args[2].lower() if len(args) > 2 else None
+
+    lines = parse_csv(csv_path, filter_src, filter_dst)
+
     plot = pygal.DateTimeLine(x_label_rotation=35, x_value_formatter=lambda dt: dt.strftime('%d.%m.%y %H:%M:%S'), value_formatter=int_to_time)
     for src_dst, values in lines.items():
         src, dst = src_dst
         plot.add('%s -> %s' % (src, dst), values)
-    
+
     plot.render_in_browser()
-    
+
 
 if __name__ == '__main__':
     main(*sys.argv[1:])
