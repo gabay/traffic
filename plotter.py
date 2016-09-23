@@ -3,11 +3,8 @@
 import os
 import sys
 import csv
-import time
 from datetime import datetime
 import pygal
-import webbrowser
-from lxml.html import open_in_browser
 
 def parse_csv(path, filter_src=None, filter_dst=None):
     lines = {}

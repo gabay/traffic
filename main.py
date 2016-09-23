@@ -1,18 +1,13 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-import os
-import sys
-import time
-import itertools
 import argparse
+import itertools
 import threading
 
-import configuration
 import googlemaps
-import utilities
 
-DEBUG = True
+DEBUG = False
 
 class DaemonThread(threading.Thread):
     def __init__(self, *args, **kwargs):
@@ -76,18 +71,21 @@ def main():
             print '\t', direction
     
     if args.parallel:
-        threads = [DaemonThread(target=direction.request) for direction in directions]
-        for thread in threads:
+        tasks = [(direction, DaemonThread(target=direction.request)) for direction in directions]
+        for direction, thread in tasks:
             thread.start()
-        for thread in threads:
+        for direction, thread in tasks:
             thread.join()
-            direction = thread.target.im_self
             if direction.duration:
                 print formatter(direction.timestamp, direction.source, direction.destination, direction.duration)
     else:
         for direction in directions:
-            direction.request()
-            print formatter(direction.timestamp, direction.source, direction.destination, direction.duration)
+            try:
+                direction.request()
+            except Exception, e:
+                print e
+            if direction.duration:
+                print formatter(direction.timestamp, direction.source, direction.destination, direction.duration)
 
 if __name__ == '__main__':
     main()

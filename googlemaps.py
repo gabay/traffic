@@ -27,17 +27,16 @@ class Direction:
         response = requests.get(self.url)
         self.timestamp = int(time.time())
         
-        if response.status_code != 200:
-            print '[***] status code %d on URL %s' % (response.status_code, self.url)
-            return
+        assert response.status_code == 200, '[***] status code %d on URL %s' % (response.status_code, self.url)
+
         match = self.DIRECTION_PARAMETER_RE.search(response.content)
-        if not match:
-            print '[***] no regex match on URL %s' % self.url
-            return
+        assert match is not None, '[***] no regex match on URL %s' % self.url
+        
         try:
             self.response = json.loads(match.group(1))
         except ValueError:
-            print '[***] JSON loading failed on URL %s' % self.url
+            raise ValueError('[***] JSON loading failed on URL %s' % self.url)
+            
         return self.response
 
     @property
@@ -48,4 +47,5 @@ class Direction:
                 return duration
             except TypeError, e:
                 print '[***] Duration extraction failed for URL %s' % self.url
+                open(__file__ + '.debug.log', 'ab').write(self.response + '\n\n')
         return None
