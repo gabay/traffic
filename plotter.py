@@ -9,7 +9,11 @@ import pygal
 def parse_csv(path, filter_src=None, filter_dst=None):
     lines = {}
     for line in csv.reader(open(path, 'rb')):
-        timestamp, src, dst, duration = line
+        try:
+            timestamp, src, dst, duration = line
+        except:
+            sys.stdout.write('Error parsing line %s\n\n' % line)
+            continue
         if filter_src and filter_src not in src.lower():
             continue
         if filter_dst and filter_dst not in dst.lower():
