@@ -6,6 +6,7 @@ import re
 import json
 import time
 import requests
+requests.packages.urllib3.disable_warnings()
 
 class Direction:
     URL = 'https://www.google.co.il/maps/dir/{source}/{destination}'
@@ -25,20 +26,16 @@ class Direction:
         self.response = None
         self.timestamp = None
 
-        try:
-            response = requests.get(self.url)
-            self.timestamp = int(time.time())
+        response = requests.get(self.url)
+        self.timestamp = int(time.time())
 
-            assert response.status_code == 200, '[***] status code %d' % response.status_code
+        assert response.status_code == 200, 'Status code %d' % response.status_code
 
-            match = self.DIRECTION_PARAMETER_RE.search(response.content)
-            assert match is not None, '[***] no regex match, data: %s' % response.content
+        match = self.DIRECTION_PARAMETER_RE.search(response.content)
+        assert match is not None, 'Regex not matched, data: %s' % response.content
 
-            self.response = json.loads(match.group(1))
-            return self.response
-        except Exception, e:
-            sys.stderr.write('Error on %s - %s\n\n' % (self, e))
-            raise
+        self.response = json.loads(match.group(1))
+        return self.response
 
     @property
     def duration(self):
@@ -47,6 +44,5 @@ class Direction:
                 duration = self.response[10][0][0][0][6][0][0]
                 return duration
             except TypeError, e:
-                print '[***] Duration extraction failed for URL %s' % self.url
                 open(__file__ + '.debug.log', 'ab').write(self.response + '\n\n')
         return None
