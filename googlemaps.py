@@ -5,6 +5,7 @@ import sys
 import re
 import json
 import time
+import traceback
 import requests
 requests.packages.urllib3.disable_warnings()
 
@@ -17,7 +18,9 @@ class Direction:
         self.destination = destination
         self.url = self.URL.format(source=source, destination=destination)
         self.response = None
+        self.duration = None
         self.timestamp = None
+        self.error = None
 
     def __str__(self):
         return 'Direction %s > %s' % (self.source, self.destination)
@@ -26,23 +29,18 @@ class Direction:
         self.response = None
         self.timestamp = None
 
-        response = requests.get(self.url)
-        self.timestamp = int(time.time())
+        try:
+            response = requests.get(self.url)
+            self.timestamp = int(time.time())
 
-        assert response.status_code == 200, 'Status code %d' % response.status_code
+            assert response.status_code == 200, 'Status code %d' % response.status_code
 
-        match = self.DIRECTION_PARAMETER_RE.search(response.content)
-        assert match is not None, 'Regex not matched, data: %s' % response.content
+            match = self.DIRECTION_PARAMETER_RE.search(response.content)
+            assert match is not None, 'Regex not matched, data: %s' % response.content
 
-        self.response = json.loads(match.group(1))
-        return self.response
-
-    @property
-    def duration(self):
-        if self.response is not None:
-            try:
-                duration = self.response[10][0][0][0][6][0][0]
-                return duration
-            except TypeError, e:
-                open(__file__ + '.debug.log', 'ab').write(self.response + '\n\n')
-        return None
+            self.response = json.loads(match.group(1))
+            self.duration = int(self.response[10][0][0][0][6][0][0])
+            return self.response
+        except Exception, e:
+            self.error = traceback.format_exc()
+            raise

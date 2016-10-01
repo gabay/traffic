@@ -1,6 +1,8 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+import os
+import struct
 import argparse
 import itertools
 import threading
@@ -26,55 +28,64 @@ DIRECTIONS_GENERATION = {
     'src_dst': lambda locations: [locations[i:i+2] for i in xrange(0, len(locations), 2)]
 }
 
-FORMATTERS = {
-    'csv': lambda *items: ','.join(['"%s"' % s for s in items]),
-    'text': lambda *items: '\t'.join(map(str, items)),
-}
+class Outputter:
+    def __init__(self, output_directory):
+        self.output_directory = output_directory
+        if not os.path.isdir(self.output_directory):
+            os.path.makedirs(self.output_directory)
+    
+    def write(self, filename, data):
+        with open(os.path.join(self.output_directory, filename), 'ab') as out:
+            out.write(data)
+
+def is_location(line):
+    return line != '' and line[0] != '#'
+
 
 def main():
     parser = argparse.ArgumentParser()
     # generic parameters
     parser.add_argument('-p', '--parallel', help='Run requests in parallel', action='store_true', default=False)
-
     # locations generation
     parser.add_argument('location', nargs='*')
     parser.add_argument('-f', '--location-file', help='Location file, newline seperated')
-
     # directions generation
     direction_group = parser.add_mutually_exclusive_group(required=True)
     direction_group.add_argument('--mesh', dest='dir_generation', action='store_const', const='mesh',
                                 help='Request directions between every 2 locations')
     direction_group.add_argument('--src-dst', dest='dir_generation', action='store_const', const='src_dst',
                                 help='Request directions for locations 1->2, 3->4 etc')
-
     # output format
-    parser.add_argument('-o', '--output-format', choices=['csv', 'text'], default='csv')
+    parser.add_argument('-d', '--output-directory', default='durations')
 
     args = parser.parse_args()
 
     directions_generator = DIRECTIONS_GENERATION[args.dir_generation]
-    formatter = FORMATTERS[args.output_format]
+    out = Outputter(args.output_directory)
 
     # generate the locations
     locations = args.location
     if args.location_file:
-        locations.extend(filter(None, open(args.location_file, 'rb').read().splitlines()))
+        locations.extend(filter(is_location, open(args.location_file, 'rb').read().splitlines()))
     assert len(locations) > 1, 'Not enough locations - got only %d' % len(locations)
 
     # generate the directions
     directions = [googlemaps.Direction(src, dst) for src, dst in directions_generator(locations)]
 
-    if args.parallel:
-        tasks = [(direction, DaemonThread(target=direction.request)) for direction in directions]
-    else:
-        tasks = [(direction, MockThread(target=direction.request)) for direction in directions]
+    thread_class = DaemonThread if args.parallel else MockThread
+    tasks = [(direction, thread_class(target=direction.request)) for direction in directions]
         
     for direction, thread in tasks:
         thread.start()
     for direction, thread in tasks:
         thread.join()
         if direction.duration:
-            print formatter(direction.timestamp, direction.source, direction.destination, direction.duration)
+            filename = '%s_%s.txt' % (direction.source, direction.destination)
+            data = struct.pack('>LH', direction.timestamp, direction.duration)
+        else:
+            filename = 'errors.txt'
+            data = direction.error + '\n'
+        out.write(filename, data)
 
 
 if __name__ == '__main__':
