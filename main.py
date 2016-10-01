@@ -32,7 +32,7 @@ class Outputter:
     def __init__(self, output_directory):
         self.output_directory = output_directory
         if not os.path.isdir(self.output_directory):
-            os.path.makedirs(self.output_directory)
+            os.makedirs(self.output_directory)
     
     def write(self, filename, data):
         with open(os.path.join(self.output_directory, filename), 'ab') as out:
