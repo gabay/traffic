@@ -37,12 +37,13 @@ def main(*args):
 
     lines = []
     for path in sorted(glob.glob(os.path.join(duration_directory, '*_*.txt'))):
-        src_dst = os.path.splitext(os.path.basename(path))[0].split('_')
-        lines.append((src_dst, parse_durations(path)))
+        src, dst = os.path.splitext(os.path.basename(path))[0].split('_')
+        if (filter_src and filter_src not in src.lower()) or (filter_dst and filter_dst not in dst.lower()):
+            continue
+        lines.append((src, dst, parse_durations(path)))
 
-    plot = pygal.DateTimeLine(x_label_rotation=35, x_value_formatter=datetime_to_str: , value_formatter=int_to_time)
-    for src_dst, values in lines:
-        src, dst = src_dst
+    plot = pygal.DateTimeLine(x_label_rotation=35, x_value_formatter=datetime_to_str , value_formatter=int_to_time)
+    for src, dst, values in lines:
         plot.add('%s -> %s' % (src, dst), values)
 
     plot.render_in_browser()
