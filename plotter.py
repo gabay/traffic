@@ -15,7 +15,10 @@ def parse_durations(path):
         raw_data = f.read(deserializer.size)
         if len(raw_data) < deserializer.size:
             break
-        data.append(deserializer.unpack(raw_data))
+        timestamp, duration = deserializer.unpack(raw_data)
+        dt = datetime.fromtimestamp(timestamp)
+        data.append((dt, duration))
+    f.close()
     return data
 
 def datetime_to_str(dt):
