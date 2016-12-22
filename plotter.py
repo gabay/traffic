@@ -8,6 +8,9 @@ import argparse
 from datetime import datetime
 import pygal
 
+SECONDS_PER_DAY = 60*60*24
+SECONDS_PER_WEEK = SECONDS_PER_DAY*7
+
 def parse_durations(path):
     deserializer = struct.Struct('>LH')
     data = []
@@ -21,18 +24,17 @@ def parse_durations(path):
     return data
 
 def summarize_durations(durations):
-    SECONDS_PER_WEEK = 60*60*24*7
-    SECONDS_PER_BUCKET = 120
+    SECONDS_PER_BUCKET = 300
     BUCKETS_PER_WEEK = SECONDS_PER_WEEK / SECONDS_PER_BUCKET
 
     # sort the data into buckets based on their time of the week
     buckets = [[] for i in xrange(BUCKETS_PER_WEEK)]
     for timestamp, duration in durations:
-        # epoch was a thursday - add 3 days so first day will be sunday
-        seconds = (timestamp + (0*86400)) % SECONDS_PER_WEEK
+        # epoch was a thursday so make times be in range 3-10 (sun-sat) instead of 0-7 (thu-wed)
+        seconds = (timestamp - 3*SECONDS_PER_DAY) % SECONDS_PER_WEEK
         buckets[seconds / SECONDS_PER_BUCKET].append(duration)
 
-    bucket_time = lambda index: (index * SECONDS_PER_BUCKET) + SECONDS_PER_BUCKET
+    bucket_time = lambda index: (index * SECONDS_PER_BUCKET) + (SECONDS_PER_BUCKET / 2) + (3 * SECONDS_PER_DAY)
     average = lambda items: sum(items) / len(items)
     summarized = [(bucket_time(index), average(durations)) for index, durations in enumerate(buckets) if len(durations) > 0]
     return summarized
@@ -51,17 +53,18 @@ def int_to_time(i):
 
 def main(*args):
     parser = argparse.ArgumentParser()
-    parser.add_argument('-s', '--src')
-    parser.add_argument('-d', '--dst')
+    parser.add_argument('-s', '--src', default='')
+    parser.add_argument('-d', '--dst', default='')
     parser.add_argument('--directory', default='durations')
     args = parser.parse_args()
 
+    args.src = args.src.lower()
+    args.dst = args.dst.lower()
     lines = []
     for path in sorted(glob.glob(os.path.join(args.directory, '*_*.txt'))):
         src, dst = os.path.splitext(os.path.basename(path))[0].split('_')
-        if (args.src and args.src not in src.lower()) or (args.dst and args.dst not in dst.lower()):
-            continue
-        lines.append((src, dst, parse_durations(path)))
+        if args.src in src.lower() and args.dst in dst.lower():
+            lines.append((src, dst, parse_durations(path)))
 
     plot = pygal.DateTimeLine(x_label_rotation=35, x_value_formatter=datetime_to_str , value_formatter=int_to_time)
     for src, dst, durations in lines:
