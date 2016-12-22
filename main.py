@@ -5,23 +5,10 @@ import os
 import struct
 import argparse
 import itertools
-import threading
+import traceback
 
 import googlemaps
 
-
-class DaemonThread(threading.Thread):
-    def __init__(self, *args, **kwargs):
-        super(DaemonThread, self).__init__(*args, **kwargs)
-        self.daemon=True
-
-class MockThread:
-    def __init__(self, target):
-        self.target = target
-    def start(self):
-        pass
-    def join(self):
-        self.target()
 
 DIRECTIONS_GENERATION = {
     'mesh': lambda locations: [d for d in itertools.product(locations, locations) if d[0] != d[1]],
@@ -33,7 +20,7 @@ class Outputter:
         self.output_directory = output_directory
         if not os.path.isdir(self.output_directory):
             os.makedirs(self.output_directory)
-    
+
     def write(self, filename, data):
         with open(os.path.join(self.output_directory, filename), 'ab') as out:
             out.write(data)
@@ -45,7 +32,7 @@ def is_location(line):
 def main():
     parser = argparse.ArgumentParser()
     # generic parameters
-    parser.add_argument('-p', '--parallel', help='Run requests in parallel', action='store_true', default=False)
+    #parser.add_argument('-p', '--parallel', help='Run requests in parallel', action='store_true', default=False)
     # locations generation
     parser.add_argument('location', nargs='*')
     parser.add_argument('-f', '--location-file', help='Location file, newline seperated')
@@ -67,24 +54,19 @@ def main():
     locations = args.location
     if args.location_file:
         locations.extend(filter(is_location, open(args.location_file, 'rb').read().splitlines()))
-    assert len(locations) > 1, 'Not enough locations - got only %d' % len(locations)
+    assert len(locations) > 1, 'Not enough locations - got %d' % len(locations)
 
     # generate the directions
     directions = [googlemaps.Direction(src, dst) for src, dst in directions_generator(locations)]
 
-    thread_class = DaemonThread if args.parallel else MockThread
-    tasks = [(direction, thread_class(target=direction.request)) for direction in directions]
-        
-    for direction, thread in tasks:
-        thread.start()
-    for direction, thread in tasks:
-        thread.join()
-        if direction.duration:
+    for direction in directions:
+        try:
+            direction.request()
             filename = '%s_%s.txt' % (direction.source, direction.destination)
             data = struct.pack('>LH', direction.timestamp, direction.duration)
-        else:
+        except Exception, e:
             filename = 'errors.txt'
-            data = direction.error + '\n'
+            data = traceback.format_exc() + '\n'
         out.write(filename, data)
 
 
